@@ -1,0 +1,9 @@
+/bochs.log
+
+# FOS build output
+obj/
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
