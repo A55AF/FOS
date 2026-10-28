@@ -7,5 +7,6 @@ obj/
 .DS_Store
 .vscode/
 .idea/
-.zed
-.clangd
+.zed/
+.settings/
+compile_flags.txt
