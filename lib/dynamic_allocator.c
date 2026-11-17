@@ -47,19 +47,38 @@ __inline__ uint32 get_block_size(void *va)
 {
 	//TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [1] get_block_size
 	//Your code is here
-	//Comment the following line
-	panic("get_block_size() not implemented");
+	// va = 10 + va
+	uint32 tempva = (uint32)va - META_DATA_SIZE;
+    struct BlockmetaData *temp = (struct BlockMetaData*)((uint32)tempva);
+    uint32 lvl = temp->level;
+    return BLOCK_SIZE(lvl);
+	// Comment the following line
+	// panic("get_block_size() not implemented");
 
 }
 //===========================
 // [2] ALLOCATE BLOCK:
 //===========================
+
+
+uint32 neraestpoweroftwo(uint32 sz){
+   for( uint32 i = BUDDY_LOWER_LEVEL;i<=BUDDY_UPPER_LEVEL;i++){
+         uint32 temp = 1 << i;
+         if(temp >= sz){
+        	 return i;
+         }
+   }
+   return -1;
+}
+
 void *alloc_block(uint32 requiredSize)
 {
 	//TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [2] alloc_block
 	//Your code is here
+	uint32 nsz = requiredSize + META_DATA_SIZE;
+    uint32 lvl = neraestpoweroftwo(nsz);
 	//Comment the following line
-	panic("alloc_block() not implemented");
+// panic("alloc_block() not implemented");
 }
 
 //===================================================
@@ -75,7 +94,7 @@ void free_block(void *va)
 
 //=================================================================================//
 //============================== BONUS FUNCTION ===================================//
-//=================================================================================//
+//============================================== ===================================//
 
 //===========================
 // [1] REALLOCATE BLOCK:
