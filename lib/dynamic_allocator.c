@@ -49,7 +49,7 @@ __inline__ uint32 get_block_size(void *va)
 	//Your code is here
 	// va = 10 + va
 	uint32 tempva = (uint32)va - META_DATA_SIZE;
-    struct BlockmetaData *temp = (struct BlockMetaData*)((uint32)tempva);
+    struct BlockMetaData *temp = (struct BlockMetaData*)((uint32)tempva);
     uint32 lvl = temp->level;
     return BLOCK_SIZE(lvl);
 	// Comment the following line
