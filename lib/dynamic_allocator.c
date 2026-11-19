@@ -61,7 +61,7 @@ __inline__ uint32 get_block_size(void *va)
 //===========================
 
 
-uint32 neraestpoweroftwo(uint32 sz){
+int32 neraestpoweroftwo(uint32 sz){
    for( uint32 i = BUDDY_LOWER_LEVEL;i<=BUDDY_UPPER_LEVEL;i++){
          uint32 temp = 1 << i;
          if(temp >= sz){
@@ -71,14 +71,56 @@ uint32 neraestpoweroftwo(uint32 sz){
    return -1;
 }
 
+
 void *alloc_block(uint32 requiredSize)
 {
 	//TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [2] alloc_block
 	//Your code is here
+	if(requiredSize == 0 || requiredSize > (1 << BUDDY_UPPER_LEVEL))return NULL;
 	uint32 nsz = requiredSize + META_DATA_SIZE;
-    uint32 lvl = neraestpoweroftwo(nsz);
-	//Comment the following line
-// panic("alloc_block() not implemented");
+	if(nsz > (1 << BUDDY_UPPER_LEVEL))return NULL;
+    int32 lvl = neraestpoweroftwo(nsz);
+    if(lvl == -1)return NULL;
+    // if there is a free block in the size i need
+    if(!LIST_EMPTY(&freeBlockLists[lvl])){
+           struct BlockMetaData* temp  = LIST_FIRST(&freeBlockLists[lvl]);
+           LIST_REMOVE(&freeBlockLists[lvl],temp);
+           temp->level = lvl;
+           temp->is_free = 0;
+           return (void*)((uint32)temp + META_DATA_SIZE);
+    }else {
+        int32 avaliable = -1;
+    	for(int i = lvl;i<=BUDDY_UPPER_LEVEL;i++){
+           if(!LIST_EMPTY(&freeBlockLists[i])){
+        	   avaliable = i;
+        	   break;
+           }
+    	}
+    	if(avaliable == -1){
+    		// get a new page and do your thing
+    		// create a buddy space to get a new page
+    		void *newva = create_buddy_space();
+    		if(newva == NULL)return NULL;
+    		avaliable = BUDDY_UPPER_LEVEL;
+            struct BlockMetaData* temp  = (struct BlockMetaData*)newva;
+    		LIST_INSERT_TAIL(&freeBlockLists[BUDDY_UPPER_LEVEL],temp);
+    	}
+    	// split the page until we match the size
+        struct BlockMetaData* cur  = LIST_FIRST(&freeBlockLists[avaliable]);
+        LIST_REMOVE(&freeBlockLists[avaliable],cur);
+    	while(avaliable > lvl){
+    		avaliable--;
+    		cur->level = avaliable;
+    		cur->is_free = 1;
+    		struct BlockMetaData* right  = (struct BlockMetaData*)((uint32)cur + BLOCK_SIZE(avaliable));
+    		right->level = avaliable;
+    		right->is_free = 1;
+    		LIST_INSERT_TAIL(&freeBlockLists[avaliable],right);
+    	}
+    	cur->level = lvl;
+    	cur->is_free  = 0;
+    	return (void *)((uint32)cur + META_DATA_SIZE);
+    }
 }
 
 //===================================================
