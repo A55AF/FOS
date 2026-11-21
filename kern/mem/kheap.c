@@ -9,6 +9,44 @@
 #include "../conc/ksemaphore.h"
 #include <kern/cpu/cpu.h>
 
+struct FreeBlock {
+	uint32 start;
+	uint32 size;
+
+	LIST_ENTRY(FreeBlock) prev_next_info;
+};
+
+LIST_HEAD(FreeBlockList, FreeBlock);
+struct FreeBlockList free_block_list;
+
+
+struct FreeBlock* get_valid_start(uint32 size) {
+	struct FreeBlock *it, exact_fit = NULL, worst_fit = NULL, max_start = NULL;
+	// [    FREE    ] | BREAK
+	LIST_FOREACH(it, &free_block_list, FreeBlock){
+		if(it->size == size){
+			exact_fit = it;
+		}
+		if(worst_fit == NULL || worst_fit->size < it->size){
+			worst_fit = it;
+		}
+		if(max_start == NULL || max_start->start < it->start){
+			max_start = it;
+		}
+	}
+
+	if(exact_fit != NULL) {
+		return exact_fit;
+	}
+	if(worst_fit != NULL){
+		return worst_fit;
+	}
+	return max_start;
+}
+
+uint32 get_page_index(uint32 address){
+	return (address + PAGE_SIZE - 1) / PAGE_SIZE;
+}
 /************************************************************************************/
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
@@ -30,6 +68,10 @@ void kheap_init()
 	}
 	//==================================================================================
 	//==================================================================================
+	LIST_INIT(&free_page_list);
+
+
+
 }
 /************************************************************************************/
 
@@ -41,6 +83,7 @@ void kheap_init()
 /**************************************************/
 void* create_buddy_space()
 {
+
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [4] create_buddy_space
 	//Your code is here
 	//Comment the following line
@@ -49,6 +92,7 @@ void* create_buddy_space()
 
 void  delete_buddy_space(void *va)
 {
+
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [5] delete_buddy_space
 	//Your code is here
 	//Comment the following line
@@ -63,6 +107,40 @@ void* kmalloc(unsigned int size)
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [6] kmalloc
 	//Your code is here
 	//Comment the following line
+
+	if(size <= DYN_ALLOC_MAX_BLOCK_SIZE){
+		panic("Dynamic allocator not implemented");
+	}
+	else {
+		//	LIST_INSERT_HEAD(&list_to_add, &struct_element);
+		int number_of_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+		struct FreePage* free_group = get_valid_start(number_of_pages);
+		if(free_group == NULL){
+			// empty, no free page
+
+			uint32 start = kheapPageAllocBreak;
+			kheapPageAllocBreak += number_of_pages * PAGE_SIZE;
+			for(uint32 page_index = 0; page_index < number_of_pages; ++page_index){
+				uint32 current_va = start + page_index * PAGE_SIZE;
+				int32 alloc_done = alloc_page(ptr_page_directory, current_va, PERM_PRESENT | PERM_WRITEABLE, 0);
+				if(alloc_done != 0){
+					panic("Could not allocate the page");
+				}
+			}
+			return (void*)start;
+		}
+		else if(free_group->size >= size){
+			uint32 start = free_group->start;
+
+		}
+		else if(free_group->start + free_group->size == kheapPageAllocBreak){
+			int need_push = size - free_group->size;
+			kheapPageAllocBreak += need_push;
+
+		}
+	}
+
+
 	kpanic_into_prompt("kmalloc() is not implemented yet...!!");
 
 	/*EFFICIENT IMPLEMENTATION ~O(#FREE BLOCKS + #ALLOCATED PAGES) IS REQUIRED */
