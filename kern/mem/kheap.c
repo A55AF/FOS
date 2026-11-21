@@ -84,7 +84,9 @@ void* create_buddy_space()
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [4] create_buddy_space
 	//Your code is here
 	//Comment the following line
-	panic("create_buddy_space() not implemented");
+//	panic("create_buddy_space() not implemented");
+	return kmalloc(PAGE_SIZE);
+
 }
 
 void  delete_buddy_space(void *va)
@@ -105,7 +107,7 @@ void* kmalloc(unsigned int size)
 	//Your code is here
 	//Comment the following line
 
-	// remaining virtual/physical mapping, blocking
+	// remaining blocking
 
 	if(size <= DYN_ALLOC_MAX_BLOCK_SIZE){
 		return alloc_block(size);
@@ -123,7 +125,7 @@ void* kmalloc(unsigned int size)
 
 			uint32 start = kheapPageAllocBreak;
 
-			if(start + number_of_pages * PAGE_SIZE >= KERNEL_HEAP_MAX) return NULL;
+			if(number_of_pages * PAGE_SIZE >= KERNEL_HEAP_MAX - start) return NULL;
 
 			kheapPageAllocBreak += number_of_pages * PAGE_SIZE;
 
