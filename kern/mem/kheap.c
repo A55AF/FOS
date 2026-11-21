@@ -109,7 +109,7 @@ void* kmalloc(unsigned int size)
 
 	// remaining blocking
 
-	if(size <= DYN_ALLOC_MAX_BLOCK_SIZE){
+	if(size <= DYN_ALLOC_MAX_BLOCK_SIZE - META_DATA_SIZE){
 		return alloc_block(size);
 		// panic("Dynamic allocator not implemented");
 	}
@@ -121,11 +121,9 @@ void* kmalloc(unsigned int size)
 		if(free_group == NULL){
 			// empty, no free page
 
-			// check for the boundary here
-
 			uint32 start = kheapPageAllocBreak;
 
-			if(number_of_pages * PAGE_SIZE >= KERNEL_HEAP_MAX - start) return NULL;
+			if(number_of_pages * PAGE_SIZE > KERNEL_HEAP_MAX - start) return NULL;
 
 			kheapPageAllocBreak += number_of_pages * PAGE_SIZE;
 

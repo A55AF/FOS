@@ -103,6 +103,14 @@ void *alloc_block(uint32 requiredSize)
     		if(newva == NULL)return NULL;
     		avaliable = BUDDY_UPPER_LEVEL;
             struct BlockMetaData* temp  = (struct BlockMetaData*)newva;
+            temp->level = BUDDY_UPPER_LEVEL;
+            temp->is_free=1;
+    		LIST_INSERT_TAIL(&freeBlockLists[BUDDY_UPPER_LEVEL],temp);
+
+    		newva = newva + BLOCK_SIZE(BUDDY_UPPER_LEVEL);
+    		temp = (struct BlockMetaData*)newva;
+    		temp->level = BUDDY_UPPER_LEVEL;
+    		temp->is_free=1;
     		LIST_INSERT_TAIL(&freeBlockLists[BUDDY_UPPER_LEVEL],temp);
     	}
     	// split the page until we match the size
