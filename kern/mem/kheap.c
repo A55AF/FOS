@@ -21,7 +21,7 @@ struct FreeBlockList free_block_list;
 
 
 struct FreeBlock* get_valid_start(uint32 size) {
-	struct FreeBlock *it, exact_fit = NULL, worst_fit = NULL, max_start = NULL;
+	struct FreeBlock *it, *exact_fit = NULL, *worst_fit = NULL;
 	// [    FREE    ] | BREAK
 	LIST_FOREACH(it, &free_block_list, FreeBlock){
 		if(it->size == size){
@@ -30,18 +30,15 @@ struct FreeBlock* get_valid_start(uint32 size) {
 		if(worst_fit == NULL || worst_fit->size < it->size){
 			worst_fit = it;
 		}
-		if(max_start == NULL || max_start->start < it->start){
-			max_start = it;
-		}
 	}
 
 	if(exact_fit != NULL) {
 		return exact_fit;
 	}
-	if(worst_fit != NULL){
+	if(worst_fit != NULL && worst_fit->size >= size){
 		return worst_fit;
 	}
-	return max_start;
+	return NULL;
 }
 
 uint32 get_page_index(uint32 address){
@@ -68,7 +65,7 @@ void kheap_init()
 	}
 	//==================================================================================
 	//==================================================================================
-	LIST_INIT(&free_page_list);
+	LIST_INIT(&free_block_list);
 
 
 
@@ -108,40 +105,72 @@ void* kmalloc(unsigned int size)
 	//Your code is here
 	//Comment the following line
 
+	// remaining virtual/physical mapping, blocking
+
 	if(size <= DYN_ALLOC_MAX_BLOCK_SIZE){
-		panic("Dynamic allocator not implemented");
+		return alloc_block(size);
+		// panic("Dynamic allocator not implemented");
 	}
-	else {
+
 		//	LIST_INSERT_HEAD(&list_to_add, &struct_element);
 		int number_of_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-		struct FreePage* free_group = get_valid_start(number_of_pages);
+		int32 number_of_bytes = number_of_pages * PAGE_SIZE;
+		struct FreeBlock* free_group = get_valid_start(number_of_bytes);
 		if(free_group == NULL){
 			// empty, no free page
 
+			// check for the boundary here
+
 			uint32 start = kheapPageAllocBreak;
+
+			if(start + number_of_pages * PAGE_SIZE >= KERNEL_HEAP_MAX) return NULL;
+
 			kheapPageAllocBreak += number_of_pages * PAGE_SIZE;
+
 			for(uint32 page_index = 0; page_index < number_of_pages; ++page_index){
 				uint32 current_va = start + page_index * PAGE_SIZE;
-				int32 alloc_done = alloc_page(ptr_page_directory, current_va, PERM_PRESENT | PERM_WRITEABLE, 0);
+				int32 alloc_done = alloc_page(ptr_page_directory, current_va, PERM_PRESENT | PERM_WRITEABLE, 1);
 				if(alloc_done != 0){
 					panic("Could not allocate the page");
+				}
+				uint32 *pg_table = NULL;
+				struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, current_va, &pg_table);
+				if(frame_info != NULL){
+					frame_info->virtualAddress = current_va;
 				}
 			}
 			return (void*)start;
 		}
-		else if(free_group->size >= size){
+		else if(free_group->size >= number_of_bytes){
 			uint32 start = free_group->start;
+			for(uint32 page_index = 0; page_index < number_of_pages; ++page_index){
+				uint32 current_va = start + page_index * PAGE_SIZE;
+				int32 alloc_done = alloc_page(ptr_page_directory, current_va, PERM_PRESENT | PERM_WRITEABLE, 1);
+				if(alloc_done != 0){
+					panic("Could not allocate the page");
+				}
+				uint32 *pg_table = NULL;
+				struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, current_va, &pg_table);
+				if(frame_info != NULL){
+					frame_info->virtualAddress = current_va;
+				}
+			}
+			int32 newStart = start + number_of_bytes;
+			int32 newSize = free_group->size - number_of_bytes;
+			if(newSize == 0){
+				LIST_REMOVE(&free_block_list, free_group);
+			}
+			else{
+				free_group->start += number_of_bytes;
+				free_group->size -= number_of_bytes;
+			}
 
+			return (void*)start;
+		}else{
+			panic("fi 7aga 8alt, kernel kmalloc");
 		}
-		else if(free_group->start + free_group->size == kheapPageAllocBreak){
-			int need_push = size - free_group->size;
-			kheapPageAllocBreak += need_push;
 
-		}
-	}
-
-
-	kpanic_into_prompt("kmalloc() is not implemented yet...!!");
+	//kpanic_into_prompt("kmalloc() is not implemented yet...!!");
 
 	/*EFFICIENT IMPLEMENTATION ~O(#FREE BLOCKS + #ALLOCATED PAGES) IS REQUIRED */
 

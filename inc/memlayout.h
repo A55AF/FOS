@@ -222,8 +222,13 @@ struct FrameInfo {
 	// boot_allocate_space do not have valid reference count fields.
 	uint16 references;
 
+
+
 	struct Env *proc;
 	unsigned char isBuffered;
+
+	uint32 virtualAddress;
+
 };
 
 #endif /* !__ASSEMBLER__ */
