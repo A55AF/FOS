@@ -130,8 +130,35 @@ void free_block(void *va)
 {
 	//TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [3] free_block
 	//Your code is here
+	if(va == NULL) return;
+
+	uint32 block_address = (uint32)va - META_DATA_SIZE;
+	struct BlockMetaData* block_metadata = (struct BlockMetaData*)(block_address);
+	uint32 block_size = BLOCK_SIZE(block_metadata->level);
+
+	if(block_metadata->is_free == 1) return;
+
+	while(block_metadata->level < BUDDY_UPPER_LEVEL + 1) {
+	    uint32 buddy_address = (block_address ^ BLOCK_SIZE(block_metadata->level));
+		struct BlockMetaData* buddy_metadata = (struct BlockMetaData*)(buddy_address);
+
+		if(buddy_metadata->is_free == 1 && block_metadata->level == buddy_metadata->level) {
+		    LIST_REMOVE(&freeBlockLists[buddy_metadata->level], buddy_metadata);
+			block_address = MIN(block_address, buddy_address);
+			block_metadata = (struct BlockMetaData*)(block_address);
+			block_metadata->level++;
+		} else {
+		    break;
+		}
+	}
+	block_metadata->is_free = 1;
+	if(block_metadata->level == BUDDY_UPPER_LEVEL + 1) {
+	    delete_buddy_space((void *)block_address);
+	} else {
+    	LIST_INSERT_HEAD(&freeBlockLists[block_metadata->level], block_metadata);
+	}
 	//Comment the following line
-	panic("free_block() not implemented");
+	// panic("free_block() not implemented");
 }
 
 //=================================================================================//
