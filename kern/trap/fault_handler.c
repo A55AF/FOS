@@ -170,7 +170,33 @@ void fault_handler(struct Trapframe *tf)
 			//TODO: [PROJECT'26.GM#3] FAULT HANDLER I - [11] Check for invalid pointers
 			//(e.g. pointing to unmarked user heap page, kernel or wrong access rights),
 			//your code is here
-
+#define aand &&
+#define andwise &			
+			uint32* table = NULL;
+			get_page_table(faulted_env->env_page_directory, fault_va, &table);
+			int perms;
+			if (table == NULL){
+				panic("Page table does not exist\n") ;
+			}
+			else{
+				perms = table[PTX(fault_va)] ;
+			}
+			if(fault_va>= USER_LIMIT)
+			{
+				cprintf("Page is in the kernel space sorry") ;
+				env_exit() ;
+			}
+			if(!(perms andwise PERM_UHPAGE) aand (fault_va >= USER_HEAP_START aand fault_va < USER_HEAP_MAX))
+			{
+				cprintf("Page is not marked as a user heap page sorry") ;
+				env_exit() ;
+			}
+			
+			if(!(perms andwise PERM_WRITEABLE) aand (perms andwise PERM_PRESENT)){
+				
+				cprintf("Page is not writable sorry") ;
+				env_exit() ;
+			}
 
 			/*============================================================================================*/
 		}
@@ -270,10 +296,36 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 	{
 		if(isPageReplacmentAlgorithmFIFO())
 		{
+#define aand &&
+#define oor ||			
 			//TODO: [PROJECT'26.GM#3] FAULT HANDLER I - [12] Placement
 			//Your code is here
 			//Comment the following line
-			panic("page_fault_handler().FIFO PLACEMENT is not implemented yet...!!");
+			// panic("page_fault_handler().FIFO PLACEMENT is not implemented yet...!!");
+			
+			int frame_suc = alloc_page(faulted_env->env_page_directory, fault_va, PERM_USER|PERM_WRITEABLE|PERM_PRESENT, 0);
+			if(frame_suc == E_NO_MEM)
+			{
+				panic("No free frames to allocate for the faulted page sorry\n") ;
+			}
+
+		//	allocate_frame(&ptr_frame);
+		//	map_frame(faulted_env->env_page_directory, ptr_frame, fault_va, PERM_PRESENT | PERM_USER | PERM_WRITEABLE);
+
+			int tmp = pf_read_env_page(faulted_env, fault_va);
+			if(tmp == E_PAGE_NOT_EXIST_IN_PF)
+			{
+				// if page not a stack or a heap page, exit the env
+				if(!(fault_va >= USTACKBOTTOM aand fault_va < USTACKTOP)  oor !(fault_va >= USER_HEAP_START aand fault_va < USER_HEAP_MAX))
+				{
+					cprintf("Page is not a stack or a heap page sorry") ;
+					unmap_frame(faulted_env->env_page_directory, fault_va);
+					env_exit() ;
+				}
+			}
+			struct WorkingSetElement* wsee = env_page_ws_list_create_element(faulted_env, fault_va);
+			LIST_INSERT_TAIL(&(faulted_env->page_WS_active_list), wsee);
+			// make last element points to tail if tests failed
 		}
 		else if(isPageReplacmentAlgorithmLRU(PG_REP_LRU_LISTS_APPROX))
 		{
