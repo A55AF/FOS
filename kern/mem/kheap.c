@@ -11,6 +11,7 @@
 
 #define BELONGS_TO_BUDDY (-10)
 #define AV_PAGES ((KERNEL_HEAP_MAX - KERNEL_HEAP_START) / PAGE_SIZE)
+struct sleeplock KHEAP_SLEEP_LOCK;
 
 struct FreeBlock {
 	uint32 start;
@@ -75,7 +76,7 @@ void kheap_init()
 	LIST_INIT(&free_block_list);
 
 
-
+	init_sleeplock(&KHEAP_SLEEP_LOCK, "kernel heap sleep lock");
 }
 /************************************************************************************/
 
@@ -133,6 +134,7 @@ void* kmalloc(unsigned int size)
 		return alloc_block(size);
 		// panic("Dynamic allocator not implemented");
 	}
+	acquire_sleeplock(&KHEAP_SLEEP_LOCK);
 
 		//	LIST_INSERT_HEAD(&list_to_add, &struct_element);
 		int number_of_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -161,6 +163,7 @@ void* kmalloc(unsigned int size)
 			}
 			uint32 pg_ind = get_page_ind((void*)start);
 			size_starts_from_va[pg_ind] = number_of_pages;
+			release_sleeplock(&KHEAP_SLEEP_LOCK);
 			return (void*)start;
 		}
 		else if(free_group->size >= number_of_bytes){
@@ -190,6 +193,7 @@ void* kmalloc(unsigned int size)
 
 			uint32 pg_ind = get_page_ind((void*)start);
 			size_starts_from_va[pg_ind] = number_of_pages;
+			release_sleeplock(&KHEAP_SLEEP_LOCK);
 			return (void*)start;
 		}else{
 			panic("fi 7aga 8alt, kernel kmalloc");
@@ -218,8 +222,10 @@ void kfree(void* virtual_address)
 		panic("kfree: this is not start of a block or nothing stored from this va.");
 		return;
 	}
+	acquire_sleeplock(&KHEAP_SLEEP_LOCK);
 	if(number_of_pages == BELONGS_TO_BUDDY){
 		free_block(virtual_address);
+		release_sleeplock(&KHEAP_SLEEP_LOCK);
 		return;
 	}
 
@@ -268,12 +274,14 @@ void kfree(void* virtual_address)
 	// check if it's the last segment
 	if(cur_start + cur_size == kheapPageAllocBreak){
 		kheapPageAllocBreak -= cur_size;
+		release_sleeplock(&KHEAP_SLEEP_LOCK);
 		return;
 	}
 	struct FreeBlock *cur = &free_block_arr[get_page_ind((void*)cur_start)];
 	cur->size = cur_size;
 	cur->start = cur_start;
 	LIST_INSERT_HEAD(&free_block_list, cur);
+	release_sleeplock(&KHEAP_SLEEP_LOCK);
 	return;
 
 
